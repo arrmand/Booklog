@@ -4,6 +4,28 @@ import datetime
 from matplotlib import pyplot as plt
 import numpy as np
 
+
+book_objects = []
+
+
+class Books:
+
+    def __init__(self, splitlist):
+        self.title = splitlist[0]
+        self.author = splitlist[1]
+        self.pages = int(splitlist[2])
+        self.date = str(splitlist[3])
+        book_objects.append(self)
+
+
+def readmemory():
+    with open('log.txt', 'r', encoding = 'UTF-8') as file:
+        for line in file.read().splitlines():
+            Books(line.split('*'))
+
+readmemory()
+#reads in the data from the text file and makes them objects of the Books class
+        
 def search(title):
     try:
         title.replace(' ','+')
@@ -18,7 +40,7 @@ def search(title):
 #Here the program searches the title on good reads, then gets the link of the first result, and gets the text of the page the link leads to
 
         soup = bs.BeautifulSoup(book_source,'html5lib').find('div', {'id' : 'metacol'})
-        pages = soup.find('span',{'itemprop' : 'numberOfPages'}).text
+        pages = soup.find('span',{'itemprop' : 'numberOfPages'}).text[:-5]
         author = soup.find('span',{'itemprop' : 'name'}).text
         title = soup.find('h1',{'id' : 'bookTitle'}).text[7:-1]
 #Here it just scrapes the information about the book that I want to log
@@ -30,105 +52,85 @@ def search(title):
 
 def add(title, datefinished = 'Today'):
     if datefinished == 'Today':
-        datefinished = str(datetime.datetime.now())[:10]
-    with open('log.txt', 'a', encoding = 'utf-8') as log: 
+        datefinished = datetime.date.today()
+    with open('log.txt', 'a', encoding = 'utf-8') as file: 
         try:
-            for prop in search(title):
-                log.write(prop+'*')
-            log.write(datefinished)   
-            log.write('\n')
+            results = search(title)   
+            results.append(datefinished)
+            file.write('{}*{}*{}*{}\n'.format(results[0], results[1] ,results[2] , results[3]))
+            Books(results)
+            
         except(TypeError):
-            print('couldnt find a book with that name sorry brah')
+            print('Unable to find a book with that title')
     print('done')
 #writes the data the search function returns into a txt file
 
 def remove():
-    with open('log.txt','r', encoding = 'utf-8')as file:
-        bookdata = file.read().splitlines()
-        for index,book in enumerate(bookdata):
-            print((index,book.split('*')[0] + ' by ' +book.split('*')[1]))
-        done = False
-        while not done:
-            inp = input('Which book would you like to remove?(Index)')
-            try:
-                inp = int(inp)
-                done = True
-            except(ValueError):
-                print('Please enter a number.')
-        
-        for index,book in enumerate(bookdata[:]):
-            if inp == index:
-                bookdata.remove(book)
-    
-    with open('log.txt','w', encoding = 'utf-8') as file:
-        for line in bookdata:
-            file.write(line + '\n')
+    for book in book_objects:
+        print(book_objects.index(book), '{} by {}'.format(book.title, book.author))
+    inp = int(input('Please enter the index of the book that you would like to remove '))
+    for book in book_objects[:]:
+        if book_objects.index(book) == inp:
+            book_objects.pop(inp)
+            break
+
+    with open('log.txt', 'w', encoding = 'UTF-8') as file:
+        for book in book_objects:
+            file.write('{}*{}*{}*{}\n'.format(book.title, book.author, book.pages, book.date))
+            
 #reads in the bookdata, takes an input of a book index, overwrites the bookdata, without the book of the inputted index
             
 def booksread():
-    with open('log.txt','r', encoding = 'utf-8') as file:
-        bookdata = file.read().splitlines()
-        for book in bookdata:
-            print('{} by {}, {} pages long, finished on {}'.format(book.split('*')[0],book.split('*')[1],book.split('*')[2],book.split('*')[3]))
+    for book in book_objects:
+        print('{} by {}, {} pages long, finished on {}'.format(book.title, book.author, book.pages, book.date))
     
 def plotmonthly():
-    with open('log.txt','r', encoding = 'utf-8') as file:
-        bookdata = file.read().splitlines()
-        splitdata = [[int(book.split('*')[2].split(' ')[0]),book.split('*')[3]] for book in bookdata]
-#reads in the log file and makes a list out of the lists that contains the pages and the dates finished
-        monthly = []
-        
-        for book in splitdata:
-            book[1] = book[1][:-3]
-            if len(monthly) > 0:
-                done = False
-                for i in monthly:
-                    if i[1] == book[1]:
-                        i[0] += book[0]
-                        done = True
-                        break
-                if not done:
-                    monthly.append(book)
-            else:
-                monthly.append(book)
-#using the list that it constructed above sums up the total pages read each month
-        monthly.sort(key = lambda x : x[1])
-        pos = np.arange(len([x[0] for x in monthly]))
-        plt.style.use('seaborn-colorblind')
-        plt.bar(pos, [x[0] for x in monthly])
-        plt.xticks(pos, [x[1] for x in monthly])
-        plt.title('Number of pages read each month')
-        plt.xlabel('Month')
-        plt.ylabel('Pages read')
-        plt.show()
+    monthly = []
+    for book in book_objects:
+        if book.date[:-3] not in [x[0] for x in monthly]: #I use slicing here because the date includes the exact day too, but we don't need that for a monthly plot
+            monthly.append([book.date[:-3], book.pages])
+        else:
+            for l in monthly:
+                if l[0]  == book.date[:-3]:
+                    l[1] += book.pages
+                    
+#sums up the total pages read each month
+                    
+    monthly.sort(key = lambda x : x[0]) #sorts monthly chronologically
+    pos = np.arange(len(monthly))
+    plt.style.use('seaborn-colorblind')
+    plt.bar(pos, [x[1] for x in monthly])
+    plt.xticks(pos, [x[0] for x in monthly])
+    plt.title('Number of pages read each month')
+    plt.xlabel('Month')
+    plt.ylabel('Pages read')
+    plt.show()
 #plots the data
 
 def plotyearly(year = 'This year'):
     if year == 'This year':
-        now = datetime.datetime.now()
+        now = datetime.date.today()
         year = now.year
+
+    months = ['01','02','03','04','05','06','07','08','09','10','11','12']
+    up_to_month =[['{}-{}'.format(year, month), 0] for month in months]
+
+    for l in up_to_month:
+        try:
+            l[1] += next_month #adds the previous months pages to the current one, it's in a try block, because the first one obviously can't do that
+        except:
+            pass
         
-    with open('log.txt','r', encoding = 'utf-8') as file:
-            bookdata = file.read().splitlines()
-            splitdata = [[int(book.split('*')[2].split(' ')[0]),book.split('*')[3]] for book in bookdata]
+        for book in book_objects:
+            if book.date[:-3] == l[0]: #slicing again because we dont need the day
+                l[1] += book.pages
+        next_month = l[1]
 
-            pages_read = 0
-            month = ['01','02','03','04','05','06','07','08','09','10','11','12']
-            
-            up_to_month = [['{}-{}'.format(year,month[index]),0] for index in range(0,12)]
-            for index in range(0,12):
-                if index > 0:
-                    up_to_month[index][1] += up_to_month[index-1][1]
-                for book in splitdata[:]:
-                    if book[1][:-3] == up_to_month[index][0]:
-                        up_to_month[index][1] += book[0]
-                        splitdata.remove(book)
-
-            month_name =['January','February','March','April','May','June','July','August','September','October','November','December']
-            plt.style.use('seaborn-colorblind')
-            plt.title('Total number of pages read throughout the year {}'.format(year))
-            plt.xlabel('Month')
-            plt.ylabel('Pages read')
-            plt.plot(month_name,[x[1] for x in up_to_month])
-            plt.show()
+    month_name =['January','February','March','April','May','June','July','August','September','October','November','December']
+    plt.style.use('seaborn-colorblind')
+    plt.title('Total number of pages read throughout the year {}'.format(year))
+    plt.xlabel('Month')
+    plt.ylabel('Pages read')
+    plt.plot(month_name,[x[1] for x in up_to_month])
+    plt.show()
 #this function works almost the same way as the previous one, the only difference is that it takes the previous months pagessum and adds it to the current month, this way we can track our progress throughout the year
