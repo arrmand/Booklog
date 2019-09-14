@@ -22,8 +22,10 @@ def readmemory():
     with open('log.txt', 'r', encoding = 'UTF-8') as file:
         for line in file.read().splitlines():
             Books(line.split('*'))
-
-readmemory()
+try:
+    readmemory()
+except:
+    pass
 #reads in the data from the text file and makes them objects of the Books class
         
 def search(title):
