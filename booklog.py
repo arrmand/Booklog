@@ -25,7 +25,8 @@ def readmemory():
 try:
     readmemory()
 except:
-    pass
+    with open('log.txt','w', encoding = 'UTF-8'):
+        pass
 #reads in the data from the text file and makes them objects of the Books class
         
 def search(title):
